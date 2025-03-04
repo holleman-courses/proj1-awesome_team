@@ -43,7 +43,7 @@ def calc_pr(threshold: float, output: np.ndarray, targets: np.ndarray):
     
     return (fpr, tpr, recall)
 
-step = 0.001
+step = 1e-6
 thresholds = np.arange(output.min(), output.max(), step)
 
 tpr_curve = np.zeros(thresholds.shape)
@@ -64,6 +64,7 @@ plt.xlabel("Threshold")
 plt.ylabel("Rate")
 plt.title("ROC Curves")
 plt.legend()
+plt.savefig("plot.png")
 plt.show()
     
 
