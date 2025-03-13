@@ -1,0 +1,4 @@
+Training Accuracy: 0.7500
+Validation Accuracy: 0.5000
+Positive Samples: 5
+Negative Samples: 5
