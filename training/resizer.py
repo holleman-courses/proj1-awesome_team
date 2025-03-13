@@ -10,5 +10,5 @@ for root, _, files in os.walk('./dataset'):
         in_path = os.path.join(root, file)
         out_path = os.path.join('./dataset/resized', root, file)
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
-        resize_image(in_path, out_path, (256, 256))
+        resize_image(in_path, out_path, (64, 64))
             

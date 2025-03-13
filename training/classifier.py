@@ -3,7 +3,6 @@ from dataclasses import dataclass
 import keras
 from keras import layers, optimizers, models
 layers.Conv2D
-from PIL import Image
 import os
 
 @dataclass
@@ -15,24 +14,27 @@ class ConvParams:
     pool_size: tuple = (1, 1)
 
 class Classifier:
-    def __init__(self, in_size, out_shape, conv_layers: list[ConvParams], fc_layers, dropout, optimizer, loss, metrics):
-        self.model = models.Sequential()
-        self.model.add(layers.InputLayer(input_shape=in_size))
+    def __init__(self, in_size, out_shape, conv_layers: list[ConvParams], fc_layers: list[int], dropout, optimizer, loss, metrics):
+        self.sequential = models.Sequential()
+        self.sequential.add(layers.InputLayer(shape=in_size))
         for layer in conv_layers:
-            self.model.add(layers.Conv2D(layer.filters, layer.kernel_size, layer.strides, layer.padding))
-            self.model.add(layers.BatchNormalization())
-            self.model.add(layers.Activation('relu'))
-            self.model.add(layers.MaxPooling2D(pool_size=layer.pool_size))
-            self.model.add(layers.Dropout(dropout))
-        self.model.add(layers.Flatten())
-        # dummy_in = keras.KerasTensor(shape=(None, in_size), dtype=tf.float32)
-        # dummy_out = self.model(dummy_in)
-        # fc_in = dummy_out.shape[1]
+            self.sequential.add(layers.Conv2D(layer.filters, layer.kernel_size, layer.strides, layer.padding))
+            self.sequential.add(layers.BatchNormalization())
+            self.sequential.add(layers.Activation('relu'))
+            self.sequential.add(layers.MaxPooling2D(pool_size=layer.pool_size))
+            self.sequential.add(layers.Dropout(dropout))
+        self.sequential.add(layers.Flatten())
         for layer in fc_layers:
-            self.model.add(layers.Dense(layer))
-            self.model.add(layers.BatchNormalization())
-            self.model.add(layers.Activation('relu'))
-            self.model.add(layers.Dropout(dropout))
-        self.model.add(layers.Dense(out_shape))
+            self.sequential.add(layers.Dense(layer))
+            self.sequential.add(layers.BatchNormalization())
+            self.sequential.add(layers.Activation('relu'))
+            self.sequential.add(layers.Dropout(dropout))
+        self.sequential.add(layers.Dense(out_shape))
         
-        self.model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+        self.sequential.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+    def fit(self, *args, **kwargs):
+        self.sequential.fit(*args, **kwargs)
+    def save(self, path):
+        self.sequential.save(path)
+    def load(self, path):
+        self.sequential = models.load_model(path)
