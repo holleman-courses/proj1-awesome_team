@@ -59,7 +59,7 @@ counter = 413
 while True:
     frame = receive_image()
     if frame is not None:
-        # grayscale = rgb565_to_grayscale(frame)
+        # grayscale = rgb565_to_grayscale(frame)a
 
         # Save as PNG
         # img = Image.fromarray(grayscale, "L")
