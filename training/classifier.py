@@ -1,26 +1,33 @@
 import tensorflow as tf
-from keras import layers, optimizers, models, ops
-import keras
+from tf_keras import layers, optimizers, models
+import tf_keras as keras
 
 
+@keras.saving.register_keras_serializable(package="ResNet")
 
-class ResBlock(layers.Layer):
+class ResBlock(layers.Layer):    
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
     def __init__(
         self,
-        filters: int,
+        filters: int, 
         kernel_size: int = 3,
         strides: tuple[int] = (1,1),
         padding:str = 'same',
         activation: str = 'relu',
-        dropout: int = 0
+        dropout: int = 0,
+        use_projection: bool = None,
+        base_args = [],
+        base_kwargs = {},
     ):
-        super().__init__()
+        super().__init__(*base_args, **base_kwargs)
         self.filters = filters
         self.kernel_size = kernel_size
         self.strides = strides
         self.padding = padding
         self.activation = activation
-        self.dropout = dropout
+        self.dropout_p = dropout
         
         
         self.conv1 = layers.SeparableConv2D(filters, kernel_size, strides, padding=padding, use_bias=False)
@@ -31,23 +38,31 @@ class ResBlock(layers.Layer):
         self.activation2 = layers.Activation(activation)
         self.dropout = layers.Dropout(dropout)
         
+        if use_projection is None:
+            use_projection = strides != (1,1)
+        self.use_projection = use_projection
+        
         self.match_dim = layers.SeparableConv2D(
             filters,
             kernel_size=1,
             strides=strides,
             padding='same',
             use_bias=False
-        ) if strides != (1,1) else layers.Identity()
+        ) if self.use_projection else layers.Identity()
     
-    def build(self, input_shape: tuple):
-        if input_shape[-1] != self.conv1.filters:
-            self.match_dim = layers.Conv2D(
-                self.filters,
-                kernel_size=1,
-                strides=self.strides,
-                padding='same',
-                use_bias=False
-            )
+    # def build(self, input_shape: tuple):
+    #     if self.use_projection:
+    #         return
+    #     if input_shape[-1] != self.filters:
+    #         self.match_dim = layers.Conv2D(
+    #             self.filters,
+    #             kernel_size=1,
+    #             strides=self.strides,
+    #             padding='same',
+    #             use_bias=False
+    #         )
+    #         self.use_projection = True
+            
         
     def call(self, x: tf.Tensor) -> tf.Tensor:
         x_matched = self.match_dim(x)
@@ -65,6 +80,19 @@ class ResBlock(layers.Layer):
         
         return out
 
+    def get_config(self):
+        base_config = super().get_config()
+        return {
+            'base_kwargs': base_config,
+            'filters': self.filters,
+            'kernel_size': self.kernel_size,
+            'strides': self.strides,
+            'padding': self.padding,
+            'activation': self.activation,
+            'dropout': self.dropout_p,
+            'use_projection': self.use_projection
+        }
+
 class ResNet:
     def __init__(
         self,
@@ -80,7 +108,7 @@ class ResNet:
         metrics: list[str]
     ):
         self.sequential = models.Sequential()
-        self.sequential.add(layers.InputLayer(shape=in_size))
+        self.sequential.add(layers.InputLayer(input_shape=in_size))
         self.sequential.add(initial_conv)
         self.sequential.add(layers.BatchNormalization())
         self.sequential.add(layers.Activation('relu'))
@@ -96,17 +124,24 @@ class ResNet:
         self.sequential.add(layers.Dense(out_shape, activation='sigmoid'))
         
         self.sequential.compile(optimizer=optimizer, loss=loss, metrics=metrics, jit_compile=True)
+        
+        num_params = self.sequential.count_params()
+        print('-'*40)
+        print(f'Total number of parameters: {num_params}')
+        print('-'*40)
     def fit(self, save_path = None, best_path = 'training/bestacc.txt', *args, **kwargs):
         checkpoint_callback = lambda: None
+        with open(best_path, 'r') as f:    
+            best_accuracy = float(f.read())
         if save_path is not None:
             checkpoint_callback = keras.callbacks.ModelCheckpoint(
                 save_path,
                 save_best_only=True,
                 monitor='val_accuracy',
-                mode='max'
+                mode='max',
+                initial_value_threshold=0#best_accuracy
             )
-        with open(best_path, 'r') as f:    
-            best_accuracy = float(f.read())
+
         
         hist = self.sequential.fit(*args, **kwargs, callbacks=[checkpoint_callback])
         
@@ -121,3 +156,4 @@ class ResNet:
         self.sequential.save(path)
     def load(self, path):
         self.sequential = models.load_model(path)
+

@@ -1,26 +1,27 @@
 
 import os
 import tensorflow as tf
-import keras
-from keras import layers
-from keras import models, optimizers
+import tf_keras as keras
+from tf_keras import layers, optimizers
 
 from classifier import ResBlock, ResNet
 
+import matplotlib.pyplot as plt
+
 image_size = (64, 64)
 
-p_drop = 0.5
+p_drop = 0.4 #prev 0.3
 model = ResNet(
     in_size=(*image_size, 1),
     out_shape=1,
     initial_conv=layers.Conv2D(64, 7, padding='same', use_bias=False),
     initial_pool=layers.MaxPool2D(),
     ResBlocks=[
-        ResBlock(128, 5, dropout=p_drop),
+        ResBlock(128, 5, dropout=p_drop, use_projection=True),
+        ResBlock(64, 5, dropout=p_drop, use_projection=True),
         ResBlock(64, 5, dropout=p_drop),
         ResBlock(64, 5, dropout=p_drop),
-        ResBlock(64, 5, dropout=p_drop),
-        ResBlock(32, 3, dropout=p_drop),
+        ResBlock(32, 3, dropout=p_drop, use_projection=True),
         ResBlock(32, 3, dropout=p_drop),
         ResBlock(32, 3, dropout=p_drop),
         ResBlock(32, 3, dropout=p_drop),
@@ -37,11 +38,6 @@ model = ResNet(
     metrics=['accuracy']
 )
 
-num_params = model.sequential.count_params()
-print('-'*40)
-print(f'Total number of parameters: {num_params}')
-print('-'*40)
-
 train, val = keras.utils.image_dataset_from_directory(
     directory = 'dataset',
     labels='inferred',
@@ -56,5 +52,20 @@ train, val = keras.utils.image_dataset_from_directory(
 )
 
 
+hist = model.fit('model.h5', x=train, epochs=1, validation_data=val, validation_batch_size=179)
 
-model.fit('model.h5', x=train, epochs=500, validation_data=val, validation_batch_size=64)
+model_loaded = keras.models.load_model('model.h5')
+model_loaded.evaluate(val)
+
+plt.title('Loss')
+plt.plot(hist.history['loss'], label='train')
+plt.plot(hist.history['val_loss'], label='val')
+plt.legend()
+plt.savefig('loss.png')
+
+plt.title('Accuracy')
+plt.plot(hist.history['accuracy'], label='train')
+plt.plot(hist.history['val_accuracy'], label='val')
+plt.legend()
+plt.savefig('accuracy.png')
+
