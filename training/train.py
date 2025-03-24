@@ -37,8 +37,8 @@ model = ResNet(
     ],
     fc_layers=[
         layers.Dense(128),
-        layers.Dense(128),
-        layers.Dense(64)
+        layers.Dense(64),
+        layers.Dense(32)
     ],
     dropout=0,
     optimizer=optimizers.Adam(learning_rate=1e-3, weight_decay=1e-5),

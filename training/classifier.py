@@ -22,15 +22,15 @@ class ResBlock(layers.Layer):
         self.dropout = dropout
         
         
-        self.conv1 = layers.Conv2D(filters, kernel_size, strides, padding=padding, use_bias=False)
-        self.conv2 = layers.Conv2D(filters, kernel_size, strides, padding=padding, use_bias=False)
+        self.conv1 = layers.SeparableConv2D(filters, kernel_size, strides, padding=padding, use_bias=False)
+        self.conv2 = layers.SeparableConv2D(filters, kernel_size, strides, padding=padding, use_bias=False)
         self.norm1 = layers.BatchNormalization()
         self.norm2 = layers.BatchNormalization()
         self.activation1 = layers.Activation(activation)
         self.activation2 = layers.Activation(activation)
         self.dropout = layers.Dropout(dropout)
         
-        self.match_dim = layers.Conv2D(
+        self.match_dim = layers.SeparableConv2D(
             filters,
             kernel_size=1,
             strides=strides,
