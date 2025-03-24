@@ -7,14 +7,17 @@ from tensorflow.keras.regularizers import l2
 import os
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+from person import mobilenet_v1
 
 # Define parameters
 IMG_SIZE = 128
 BATCH_SIZE = 32
-EPOCHS = 20
+EPOCHS = 50
 NUM_CLASSES = 2  # Binary classification
-LEARNING_RATE = 0.00001
+LEARNING_RATE = 0.0008
 L2_REG = 1e-4
+
+# 0.00001
 
 def loadImagesFromDirectory(directory, label):
     images, labels = [], []
@@ -79,22 +82,29 @@ def plotTrainingHistory(history, outputDir):
     plt.tight_layout()
     plt.savefig(os.path.join(outputDir, 'trainingHistory.png'))
 
-def saveModelAndMetrics(model, history, xTrain, yTrain, xVal, yVal, outputDir):
-    os.makedirs(outputDir, exist_ok=True)
-    model.save(os.path.join(outputDir, 'model.h5'))
-    
+def convertToTflite(model, output_path):
+    converter = tf.lite.TFLiteConverter.from_keras_model(model)
+    tfliteModel = converter.convert()
+    with open(output_path, 'wb') as f:
+        f.write(tfliteModel)
+
+def saveModelAndMetrics(model, history, x_train, y_train, x_val, y_val, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+    model.save(os.path.join(output_dir, 'model.h5'))
+    convertToTflite(model, os.path.join(output_dir, 'model.tflite'))
+
     # Evaluate model
-    trainLoss, trainAcc = model.evaluate(xTrain, yTrain, verbose=0)
-    valLoss, valAcc = model.evaluate(xVal, yVal, verbose=0)
-    
+    train_loss, train_acc = model.evaluate(x_train, y_train, verbose=0)
+    val_loss, val_acc = model.evaluate(x_val, y_val, verbose=0)
+
     # Save metrics
-    with open(os.path.join(outputDir, 'modelMetrics.txt'), 'w') as f:
-        f.write(f"Training Accuracy: {trainAcc:.4f}\n")
-        f.write(f"Validation Accuracy: {valAcc:.4f}\n")
-        f.write(f"Positive Samples: {np.sum(yTrain) + np.sum(yVal)}\n")
-        f.write(f"Negative Samples: {len(yTrain) + len(yVal) - np.sum(yTrain) - np.sum(yVal)}\n")
-    
-    plotTrainingHistory(history, outputDir)
+    with open(os.path.join(output_dir, 'model_metrics.txt'), 'w') as f:
+        f.write(f"Training Accuracy: {train_acc:.4f}\n")
+        f.write(f"Validation Accuracy: {val_acc:.4f}\n")
+        f.write(f"Positive Samples: {np.sum(y_train) + np.sum(y_val)}\n")
+        f.write(f"Negative Samples: {len(y_train) + len(y_val) - np.sum(y_train) - np.sum(y_val)}\n")
+
+    plotTrainingHistory(history, output_dir)
 
 def main():
     dataDir = os.path.join(os.path.dirname(__file__), 'dataset')
