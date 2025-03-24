@@ -56,5 +56,5 @@ train, val = keras.utils.image_dataset_from_directory(
 
 
 
-model.fit(train, epochs=30, validation_data=val)
+model.fit(train, epochs=500, validation_data=val)
 model.save('model.h5')
