@@ -4,7 +4,7 @@ import tensorflow as tf
 import tf_keras as keras
 from tf_keras import layers, optimizers
 
-from classifier import ResBlock, ResNet
+from classifier import ResNet, build_res_block
 
 import matplotlib.pyplot as plt
 
@@ -17,15 +17,15 @@ model = ResNet(
     initial_conv=layers.Conv2D(64, 7, padding='same', use_bias=False),
     initial_pool=layers.MaxPool2D(),
     ResBlocks=[
-        ResBlock(128, 5, dropout=p_drop, use_projection=True),
-        ResBlock(64, 5, dropout=p_drop, use_projection=True),
-        ResBlock(64, 5, dropout=p_drop),
-        ResBlock(64, 5, dropout=p_drop),
-        ResBlock(32, 3, dropout=p_drop, use_projection=True),
-        ResBlock(32, 3, dropout=p_drop),
-        ResBlock(32, 3, dropout=p_drop),
-        ResBlock(32, 3, dropout=p_drop),
-        ResBlock(32, 3, dropout=p_drop),
+        build_res_block(128, 5, dropout=p_drop),
+        build_res_block(64, 5, dropout=p_drop),
+        build_res_block(64, 5, dropout=p_drop),
+        build_res_block(64, 5, dropout=p_drop),
+        build_res_block(32, 3, dropout=p_drop),
+        build_res_block(32, 3, dropout=p_drop),
+        build_res_block(32, 3, dropout=p_drop),
+        build_res_block(32, 3, dropout=p_drop),
+        build_res_block(32, 3, dropout=p_drop),
     ],
     fc_layers=[
         layers.Dense(64),
@@ -52,7 +52,7 @@ train, val = keras.utils.image_dataset_from_directory(
 )
 
 
-hist = model.fit('model.h5', x=train, epochs=1, validation_data=val, validation_batch_size=179)
+hist = model.fit('model.h5', x=train, epochs=500, validation_data=val, validation_batch_size=179)
 
 model_loaded = keras.models.load_model('model.h5')
 model_loaded.evaluate(val)

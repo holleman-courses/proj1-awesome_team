@@ -1,14 +1,15 @@
-
-import os
+import numpy as np
+import tempfile
 import tensorflow as tf
-import keras
-from keras import layers
-from keras import models, optimizers
+from tf_keras import models, optimizers
+import tf_keras as keras
+import tensorflow_model_optimization as tfmot
 from classifier import ResBlock, ResNet
 
-
-
 image_size = (64, 64)
+
+model = models.load_model('model.h5')
+
 
 _, val = keras.utils.image_dataset_from_directory(
     directory = 'dataset',
@@ -23,5 +24,4 @@ _, val = keras.utils.image_dataset_from_directory(
     subset='both'
 )
 
-model = keras.models.load_model('model.h5')
 model.evaluate(val)
