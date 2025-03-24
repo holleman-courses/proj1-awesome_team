@@ -1,9 +1,10 @@
 import tensorflow as tf
 from dataclasses import dataclass
 import keras
-from keras import layers, optimizers, models
-layers.Conv2D
+from keras import layers, optimizers, models, ops
 import os
+
+
 
 @dataclass
 class ConvParams:
@@ -13,25 +14,58 @@ class ConvParams:
     padding: str = 'same'
     pool_size: tuple = (1, 1)
 
-class Classifier:
-    def __init__(self, in_size, out_shape, conv_layers: list[ConvParams], fc_layers: list[int], dropout, optimizer, loss, metrics):
+class ResBlock(layers.Layer):
+    def __init__(self, convolution: layers.Conv2D | layers.SeparableConv2D, activation: str = 'relu', norm = layers.BatchNormalization(), dropout: float = 0):
+        super().__init__(name = "ResBlock")
+        self.convolution = convolution
+        self.activation = layers.Activation(activation)
+        self.norm = norm
+        self.dropout = layers.Dropout(dropout)
+        self.match_dim = layers.Identity()
+    def build(self, input_shape):
+        # Check if input and output dimensions match
+        if input_shape[-1] != self.convolution.filters:
+            self.match_dim = layers.Conv2D(self.convolution.filters, kernel_size=1, strides=1, padding='same')
+    def call(self, x: tf.Tensor) -> tf.Tensor:
+        out = self.convolution(x)
+        out = self.norm(out)
+        out = self.activation(out)
+        out = self.match_dim(x)
+        out = ops.add(x, out)
+        out = self.dropout(out)
+        return out
+
+class ResNet:
+    def __init__(
+        self,
+        in_size: tuple,
+        out_shape: int,
+        initial_conv: layers.Conv2D | layers.SeparableConv2D,
+        initial_pool: layers.MaxPool2D,
+        ResBlocks: list[ResBlock],
+        fc_layers: list[layers.Dense],
+        dropout: float,
+        optimizer: optimizers.Optimizer,
+        loss: str,
+        metrics: list[str]
+    ):
         self.sequential = models.Sequential()
         self.sequential.add(layers.InputLayer(shape=in_size))
-        for layer in conv_layers:
-            self.sequential.add(layers.Conv2D(layer.filters, layer.kernel_size, layer.strides, layer.padding))
-            self.sequential.add(layers.BatchNormalization())
-            self.sequential.add(layers.Activation('relu'))
-            self.sequential.add(layers.MaxPooling2D(pool_size=layer.pool_size))
-            self.sequential.add(layers.Dropout(dropout))
-        self.sequential.add(layers.Flatten())
+        self.sequential.add(initial_conv)
+        self.sequential.add(layers.BatchNormalization())
+        self.sequential.add(layers.Activation('relu'))
+        self.sequential.add(initial_pool)
+        for block in ResBlocks:
+            self.sequential.add(block)
+        self.sequential.add(layers.GlobalAveragePooling2D())
         for layer in fc_layers:
-            self.sequential.add(layers.Dense(layer))
+            self.sequential.add(layer)
             self.sequential.add(layers.BatchNormalization())
             self.sequential.add(layers.Activation('relu'))
             self.sequential.add(layers.Dropout(dropout))
         self.sequential.add(layers.Dense(out_shape))
         
-        self.sequential.compile(optimizer=optimizer, loss=loss, metrics=metrics)
+        self.sequential.compile(optimizer=optimizer, loss=loss, metrics=metrics, jit_compile=True)
     def fit(self, *args, **kwargs):
         self.sequential.fit(*args, **kwargs)
     def save(self, path):
