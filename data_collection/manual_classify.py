@@ -2,15 +2,15 @@ import numpy as np
 import cv2
 import os
 
-pencil_counter = 0
-no_pencil_counter = 0
+pencil_counter = 421
+no_pencil_counter = 421
 
-parent_dir = r"D:\School\Intro IOT\proj1-awesome_team\data_collection"
-images_dir = 'images'
+parent_dir = r"D:\School\Intro IOT\proj1-awesome_team"
+images_dir = r'data_collection\images'
 start_dir = os.path.join(parent_dir, images_dir)
 
-pencil_path = os.path.join(parent_dir, "pencil")
-no_pencil_path = os.path.join(parent_dir, "no_pencil")
+pencil_path = os.path.join(parent_dir, r"dataset\pencil")
+no_pencil_path = os.path.join(parent_dir, r"dataset\no_pencil")
 
 os.makedirs(pencil_path, exist_ok=True)
 os.makedirs(no_pencil_path, exist_ok=True)

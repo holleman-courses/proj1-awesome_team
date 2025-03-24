@@ -54,7 +54,7 @@ def rgb565_to_grayscale(rgb565):
 
 
 
-counter = 413
+counter = 421
 
 while True:
     frame = receive_image()
@@ -63,8 +63,8 @@ while True:
 
         # Save as PNG
         # img = Image.fromarray(grayscale, "L")
-        name = f"no_pencil_{counter}"
+        name = f"pencil_{counter}"
         counter += 1
-        frame.save(f"data_collection/no_pencil/{name}.png")
+        frame.save(f"data_collection/images/{name}.png")
         print(f"Image saved as {name}.png")
         # break  # Stop after one image (remove to keep running)
