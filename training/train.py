@@ -29,16 +29,15 @@ model = ResNet(
     initial_pool=layers.MaxPool2D(),
     ResBlocks=[
         ResBlock(128, 5),
-        ResBlock(128, 5),
-        ResBlock(128, 5),
+        ResBlock(64, 5),
+        ResBlock(64, 5),
         ResBlock(64, 5),
         ResBlock(64, 3),
         ResBlock(32, 3)
     ],
     fc_layers=[
-        layers.Dense(128),
         layers.Dense(64),
-        layers.Dense(32)
+        layers.Dense(32),
     ],
     dropout=0,
     optimizer=optimizers.Adam(learning_rate=1e-3, weight_decay=1e-5),
