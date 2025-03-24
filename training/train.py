@@ -7,13 +7,15 @@ from keras import models, optimizers
 
 from classifier import ResBlock, ResNet
 
+image_size = (64, 64)
+
 train, val = keras.utils.image_dataset_from_directory(
-    directory = 'dataset/dataset',
+    directory = 'dataset',
     labels='inferred',
     label_mode='binary',
     color_mode='grayscale',
-    batch_size=1,
-    image_size=(176, 144),
+    batch_size=16,
+    image_size=image_size,
     shuffle=True,
     seed=42,
     validation_split=0.2,
@@ -21,28 +23,30 @@ train, val = keras.utils.image_dataset_from_directory(
 )
 
 model = ResNet(
-    in_size=(176, 144),
+    in_size=(*image_size, 1),
     out_shape=1,
-    initial_conv=layers.Conv2D(5, 2, padding='same', use_bias=False),
+    initial_conv=layers.Conv2D(64, 7, padding='same', use_bias=False),
     initial_pool=layers.MaxPool2D(),
     ResBlocks=[
-        ResBlock(layers.Conv2D(3, 2, padding='same', use_bias=False)),
-        ResBlock(layers.Conv2D(3, 2, padding='same', use_bias=False)),
-        ResBlock(layers.Conv2D(3, 2, padding='same', use_bias=False)),
-        ResBlock(layers.Conv2D(3, 2, padding='same', use_bias=False)),
-        ResBlock(layers.Conv2D(3, 2, padding='same', use_bias=False)),
+        ResBlock(128, 5),
+        ResBlock(128, 5),
+        ResBlock(128, 5),
+        ResBlock(64, 5),
+        ResBlock(64, 3),
+        ResBlock(32, 3)
     ],
     fc_layers=[
         layers.Dense(128),
+        layers.Dense(128),
         layers.Dense(64)
     ],
-    dropout=0.3,
-    optimizer=optimizers.Adam(),
+    dropout=0,
+    optimizer=optimizers.Adam(learning_rate=1e-3, weight_decay=1e-5),
     loss='binary_crossentropy',
     metrics=['accuracy']
 )
 
 num_params = model.sequential.count_params()
 print(f'Total number of parameters: {num_params}')
-model.fit(train, epochs=15, validation_data=val)
+model.fit(train, epochs=30, validation_data=val)
 model.save('model.h5')

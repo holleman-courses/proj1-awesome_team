@@ -1,38 +1,67 @@
 import tensorflow as tf
-from dataclasses import dataclass
-import keras
 from keras import layers, optimizers, models, ops
-import os
 
 
-
-@dataclass
-class ConvParams:
-    filters: int
-    kernel_size: int = 3
-    strides: tuple = (1, 1)
-    padding: str = 'same'
-    pool_size: tuple = (1, 1)
 
 class ResBlock(layers.Layer):
-    def __init__(self, convolution: layers.Conv2D | layers.SeparableConv2D, activation: str = 'relu', norm = layers.BatchNormalization(), dropout: float = 0):
-        super().__init__(name = "ResBlock")
-        self.convolution = convolution
-        self.activation = layers.Activation(activation)
-        self.norm = norm
+    def __init__(
+        self,
+        filters: int,
+        kernel_size: int = 3,
+        strides: tuple[int] = (1,1),
+        padding:str = 'same',
+        activation: str = 'relu',
+        dropout: int = 0
+    ):
+        super().__init__()
+        self.filters = filters
+        self.kernel_size = kernel_size
+        self.strides = strides
+        self.padding = padding
+        self.activation = activation
+        self.dropout = dropout
+        
+        
+        self.conv1 = layers.Conv2D(filters, kernel_size, strides, padding=padding, use_bias=False)
+        self.conv2 = layers.Conv2D(filters, kernel_size, strides, padding=padding, use_bias=False)
+        self.norm1 = layers.BatchNormalization()
+        self.norm2 = layers.BatchNormalization()
+        self.activation1 = layers.Activation(activation)
+        self.activation2 = layers.Activation(activation)
         self.dropout = layers.Dropout(dropout)
-        self.match_dim = layers.Identity()
-    def build(self, input_shape):
-        # Check if input and output dimensions match
-        if input_shape[-1] != self.convolution.filters:
-            self.match_dim = layers.Conv2D(self.convolution.filters, kernel_size=1, strides=1, padding='same')
+        
+        self.match_dim = layers.Conv2D(
+            filters,
+            kernel_size=1,
+            strides=strides,
+            padding='same',
+            use_bias=False
+        ) if strides != (1,1) else layers.Identity()
+    
+    def build(self, input_shape: tuple):
+        if input_shape[-1] != self.conv1.filters:
+            self.match_dim = layers.Conv2D(
+                self.filters,
+                kernel_size=1,
+                strides=self.strides,
+                padding='same',
+                use_bias=False
+            )
+        
     def call(self, x: tf.Tensor) -> tf.Tensor:
-        out = self.convolution(x)
-        out = self.norm(out)
-        out = self.activation(out)
-        out = self.match_dim(x)
-        out = ops.add(x, out)
+        x_matched = self.match_dim(x)
+        
+        out = self.conv1(x)
+        out = self.norm1(out)
+        out = self.activation1(out)
+        
+        out = self.conv2(out)
+        out = self.norm2(out)
+        out = self.activation2(out)
+        
+        out = layers.Add()([out, x_matched])
         out = self.dropout(out)
+        
         return out
 
 class ResNet:
@@ -63,7 +92,7 @@ class ResNet:
             self.sequential.add(layers.BatchNormalization())
             self.sequential.add(layers.Activation('relu'))
             self.sequential.add(layers.Dropout(dropout))
-        self.sequential.add(layers.Dense(out_shape))
+        self.sequential.add(layers.Dense(out_shape, activation='sigmoid'))
         
         self.sequential.compile(optimizer=optimizer, loss=loss, metrics=metrics, jit_compile=True)
     def fit(self, *args, **kwargs):
