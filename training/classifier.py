@@ -1,5 +1,6 @@
 import tensorflow as tf
 from keras import layers, optimizers, models, ops
+import keras
 
 
 
@@ -95,8 +96,27 @@ class ResNet:
         self.sequential.add(layers.Dense(out_shape, activation='sigmoid'))
         
         self.sequential.compile(optimizer=optimizer, loss=loss, metrics=metrics, jit_compile=True)
-    def fit(self, *args, **kwargs):
-        self.sequential.fit(*args, **kwargs)
+    def fit(self, save_path = None, best_path = 'training/bestacc.txt', *args, **kwargs):
+        checkpoint_callback = lambda: None
+        if save_path is not None:
+            checkpoint_callback = keras.callbacks.ModelCheckpoint(
+                save_path,
+                save_best_only=True,
+                monitor='val_accuracy',
+                mode='max'
+            )
+        with open(best_path, 'r') as f:    
+            best_accuracy = float(f.read())
+        
+        hist = self.sequential.fit(*args, **kwargs, callbacks=[checkpoint_callback])
+        
+        best_accuracy_new = max(hist.history['val_accuracy'])
+        if best_accuracy_new > best_accuracy:
+            with open(best_path, 'w') as f:
+                f.write(str(best_accuracy_new))
+        return hist
+        
+
     def save(self, path):
         self.sequential.save(path)
     def load(self, path):

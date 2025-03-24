@@ -1,37 +1,36 @@
-
-import os
-import tensorflow as tf
 import keras
 from keras import layers
-from keras import models, optimizers
-
+from keras import optimizers
+import numpy as np
+import tempfile
+import tensorflow as tf
+import tensorflow_model_optimization as tfmot
 from classifier import ResBlock, ResNet
 
 image_size = (64, 64)
 
-p_drop = 0.5
 model = ResNet(
     in_size=(*image_size, 1),
     out_shape=1,
     initial_conv=layers.Conv2D(64, 7, padding='same', use_bias=False),
     initial_pool=layers.MaxPool2D(),
     ResBlocks=[
-        ResBlock(128, 5, dropout=p_drop),
-        ResBlock(64, 5, dropout=p_drop),
-        ResBlock(64, 5, dropout=p_drop),
-        ResBlock(64, 5, dropout=p_drop),
-        ResBlock(32, 3, dropout=p_drop),
-        ResBlock(32, 3, dropout=p_drop),
-        ResBlock(32, 3, dropout=p_drop),
-        ResBlock(32, 3, dropout=p_drop),
-        ResBlock(32, 3, dropout=p_drop),
+        ResBlock(128, 5, dropout=0.2),
+        ResBlock(64, 5, dropout=0.2),
+        ResBlock(64, 5, dropout=0.2),
+        ResBlock(64, 5, dropout=0.2),
+        ResBlock(32, 3, dropout=0.2),
+        ResBlock(32, 3, dropout=0.2),
+        ResBlock(32, 3, dropout=0.2),
+        ResBlock(32, 3, dropout=0.2),
+        ResBlock(32, 3, dropout=0.2),
     ],
     fc_layers=[
         layers.Dense(64),
         layers.Dense(32),
         layers.Dense(16),
     ],
-    dropout=p_drop,
+    dropout=0.2,
     optimizer=optimizers.Adam(learning_rate=1e-3, weight_decay=1e-5),
     loss='binary_crossentropy',
     metrics=['accuracy']
@@ -47,7 +46,7 @@ train, val = keras.utils.image_dataset_from_directory(
     labels='inferred',
     label_mode='binary',
     color_mode='grayscale',
-    batch_size=32,
+    batch_size=16,
     image_size=image_size,
     shuffle=True,
     seed=42,
@@ -55,6 +54,3 @@ train, val = keras.utils.image_dataset_from_directory(
     subset='both'
 )
 
-
-
-model.fit('model.h5', x=train, epochs=500, validation_data=val, validation_batch_size=64)
