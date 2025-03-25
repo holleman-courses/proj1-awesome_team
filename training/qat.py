@@ -6,21 +6,16 @@ import tf_keras as keras
 import tensorflow_model_optimization as tfmot
 from classifier import ResNet
 
-image_size = (64, 64)
 
+def gen_checkpoint_callback(path):
+  return keras.callbacks.ModelCheckpoint(
+      path,
+      save_best_only=True,
+      monitor='val_accuracy',
+      mode='max',
+  )
 
-model = models.load_model('model.h5')
-
-print('Begin Quantization')
-model = tfmot.quantization.keras.quantize_model(model)
-print("End Quantization")
-
-# for layer in model.layers:
-#     print(layer.name)
-
-model.save('model_qat.h5')
-model.compile(optimizer=optimizers.Adam(learning_rate=1e-3), loss='binary_crossentropy', metrics=['accuracy'])
-
+image_size = (176, 144)
 
 train, val = keras.utils.image_dataset_from_directory(
     directory = 'dataset',
@@ -35,23 +30,102 @@ train, val = keras.utils.image_dataset_from_directory(
     subset='both'
 )
 
-print("Before tuning")
+
+model = models.load_model('model.h5')
+print("Baseline Accuracy")
 model.evaluate(val)
 
-checkpoint_callback = keras.callbacks.ModelCheckpoint(
-    'model_qat_tuned.h5',
-    save_best_only=True,
-    monitor='val_accuracy',
-    mode='max',
-    initial_value_threshold=0#best_accuracy
+print('Begin Pruning')
+pruning_params = {
+    'pruning_schedule': tfmot.sparsity.keras.ConstantSparsity(0.5, begin_step=0, frequency=100)
+}
+
+prune_callbacks = [
+    tfmot.sparsity.keras.UpdatePruningStep(),
+    gen_checkpoint_callback('models/pruned_model.h5')
+]
+
+pruned_model = tfmot.sparsity.keras.prune_low_magnitude(model, **pruning_params)
+opt = optimizers.Adam(learning_rate=1e-5, weight_decay=1e-7)
+pruned_model.compile(optimizer=opt, loss='binary_crossentropy', metrics=['accuracy'])
+
+print("Pruning Tuning")
+pruned_model.fit(train, epochs=20, validation_data=val, validation_batch_size=179, callbacks=prune_callbacks)
+
+del pruned_model
+
+pruned_model = models.load_model('models/pruned_model.h5')
+print("Pruned Model Accuracy")
+pruned_model.evaluate(val)
+
+stripped_pruned_model = tfmot.sparsity.keras.strip_pruning(pruned_model)
+
+
+print("Begin Clustering")
+
+
+from tensorflow_model_optimization.python.core.clustering.keras.experimental import (
+    cluster,
 )
 
-#hist = model.fit(train, epochs=100, validation_data=val, validation_batch_size=179, callbacks=[checkpoint_callback])
-#print(f"Best Validation Accuracy: {max(hist.history['val_accuracy'])}")
+cluster_weights = tfmot.clustering.keras.cluster_weights
+CentroidInitialization = tfmot.clustering.keras.CentroidInitialization
 
-print("After tuning")
-with tfmot.quantization.keras.quantize_scope():
-  loaded_model = keras.models.load_model('model_qat_tuned.h5')
-loaded_model.compile(optimizer=optimizers.Adam(learning_rate=1e-3), loss='binary_crossentropy', metrics=['accuracy'])
+cluster_weights = cluster.cluster_weights
 
-loaded_model.evaluate(val)
+clustering_params = {
+  'number_of_clusters': 8,
+  'cluster_centroids_init': CentroidInitialization.KMEANS_PLUS_PLUS,
+  'preserve_sparsity': True
+}
+
+sparsity_clustered_model = cluster_weights(stripped_pruned_model, **clustering_params)
+
+sparsity_clustered_model.compile(optimizer=optimizers.Adam(learning_rate=1e-5, weight_decay=1e-7),
+              loss=keras.losses.BinaryCrossentropy(from_logits=False),
+              metrics=['accuracy'])
+
+print('Train sparsity preserving clustering model:')
+sparsity_clustered_model.fit(train, epochs=20, validation_data=val, validation_batch_size=179, callbacks=[gen_checkpoint_callback('models/sparsity_clustered_model.h5')])
+del sparsity_clustered_model
+sparsity_clustered_model = models.load_model('models/sparsity_clustered_model.h5')
+
+stripped_clustered_model = tfmot.clustering.keras.strip_clustering(sparsity_clustered_model)
+
+print("Begin PCQuantization Aware Training")
+# PCQAT
+quant_aware_annotate_model = tfmot.quantization.keras.quantize_annotate_model(
+              stripped_clustered_model)
+pcqat_model = tfmot.quantization.keras.quantize_apply(
+              quant_aware_annotate_model,
+              tfmot.experimental.combine.Default8BitClusterPreserveQuantizeScheme(preserve_sparsity=True))
+
+pcqat_model.compile(optimizer=optimizers.Adam(learning_rate=1e-5, weight_decay=1e-7),
+              loss=keras.losses.BinaryCrossentropy(from_logits=False),
+              metrics=['accuracy'])
+print('Train pcqat model:')
+pcqat_model.fit(train, epochs=20, validation_data=val, validation_batch_size=179, callbacks=[gen_checkpoint_callback('models/pcqat_model.h5')])
+del pcqat_model
+pcqat_model = models.load_model('models/pcqat_model.h5')
+print("PCQAT Model Accuracy")
+pcqat_model.evaluate(val)
+
+print("Begin TFLite Conversion")
+
+def representative_data_gen():
+  for input_value, _ in val:
+    yield [input_value]
+  
+converter = tf.lite.TFLiteConverter.from_keras_model(pcqat_model)
+converter.optimizations = [tf.lite.Optimize.DEFAULT]
+converter.representative_dataset = representative_data_gen
+converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+converter.inference_input_type = tf.int8
+converter.inference_output_type = tf.int8
+
+tflite_quant_model = converter.convert()
+# Save the TFLite model
+with open("models/model.tflite", "wb") as f:
+    f.write(tflite_quant_model)
+
+

@@ -16,7 +16,7 @@ def build_res_block(filters, kernel_size=3, strides=(1,1), padding='same', activ
         out = layers.Activation(activation)(out)
         
         if strides != (1,1) or x.shape[-1] != filters:
-            shortcut = layers.SeparableConv2D(filters, kernel_size=1, strides=strides, padding='same', use_bias=False)(x)
+            shortcut = layers.Conv2D(filters, kernel_size=1, strides=strides, padding='same', use_bias=False)(x)
             shortcut = layers.BatchNormalization()(shortcut)
         
         out = layers.Add()([out, shortcut])
@@ -54,7 +54,7 @@ class ResNet:
             x = layers.BatchNormalization()(x)
             x = layers.Activation('relu')(x)
             x = layers.Dropout(dropout)(x)
-        self.output = layers.Dense(out_shape, activation='sigmoid')(x)
+        self.output = layers.Dense(out_shape)(x)
         
         self.model = models.Model(inputs=self.input, outputs=self.output)
         self.model.compile(
@@ -69,10 +69,13 @@ class ResNet:
         print('-'*40)
         print(f'Total number of parameters: {num_params}')
         print('-'*40)
-    def fit(self, save_path = None, best_path = 'training/bestacc.txt', *args, **kwargs):
+    def fit(self, save_path = None, best_path = 'training/bestacc.txt', reset_best_acc = False, *args, **kwargs):
         checkpoint_callback = lambda: None
-        with open(best_path, 'r') as f:    
-            best_accuracy = float(f.read())
+        if reset_best_acc:
+            best_accuracy = 0
+        else:
+            with open(best_path, 'r') as f:    
+                best_accuracy = float(f.read())
         if save_path is not None:
             checkpoint_callback = keras.callbacks.ModelCheckpoint(
                 save_path,
