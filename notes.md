@@ -15,3 +15,13 @@
     - We can use this as a rough estimate for the number of parameters we can use
 - Found a solid architecture with 9 resblocks and 3 dense layers that uses 114529 params
 - Hopefully this will work
+
+# Quantization Aware Training
+- Accuracies at different stages of quantization
+    - Initial training: 0.9162 
+    - After quantization: 0.4749 
+    - After quantization aware training: 0.9050
+- The quantization aware training is 5x slower
+    - 5s per epoch vs 1s per epoch
+    - Because it has to simulate the quantization process
+- The quantization aware training is also more memory intensive

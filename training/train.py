@@ -14,7 +14,7 @@ p_drop = 0.4 #prev 0.3
 model = ResNet(
     in_size=(*image_size, 1),
     out_shape=1,
-    initial_conv=layers.Conv2D(64, 7, padding='same', use_bias=False),
+    initial_conv=layers.SeparableConv2D(64, 7, padding='same', use_bias=False),
     initial_pool=layers.MaxPool2D(),
     ResBlocks=[
         build_res_block(128, 5, dropout=p_drop),
@@ -52,7 +52,7 @@ train, val = keras.utils.image_dataset_from_directory(
 )
 
 
-hist = model.fit('model.h5', x=train, epochs=1, validation_data=val, validation_batch_size=179)
+hist = model.fit('model.h5', x=train, epochs=500, validation_data=val, validation_batch_size=179)
 
 model_loaded = keras.models.load_model('model.h5')
 model_loaded.evaluate(val)
@@ -62,6 +62,8 @@ plt.plot(hist.history['loss'], label='train')
 plt.plot(hist.history['val_loss'], label='val')
 plt.legend()
 plt.savefig('loss.png')
+
+plt.clf()
 
 plt.title('Accuracy')
 plt.plot(hist.history['accuracy'], label='train')

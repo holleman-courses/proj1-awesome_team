@@ -9,32 +9,15 @@ from classifier import ResNet
 image_size = (64, 64)
 
 
-
-
-def remove_batchnorm(model: models.Model):
-    inputs = model.input  # Model input tensor
-    x = inputs
-    
-    layer_outputs = {}  # Track layer outputs for residual connections
-
-    for i, layer in enumerate(model.layers):
-        if isinstance(layer, layers.BatchNormalization):
-            model.layers.remove(layer)
-        
-
-
-
 model = models.load_model('model.h5')
-remove_batchnorm(model)
-
-for layer in model.layers:
-    print(layer.__class__.__name__)
-
-
 
 print('Begin Quantization')
 model = tfmot.quantization.keras.quantize_model(model)
 print("End Quantization")
+
+# for layer in model.layers:
+#     print(layer.name)
+
 model.save('model_qat.h5')
 model.compile(optimizer=optimizers.Adam(learning_rate=1e-3), loss='binary_crossentropy', metrics=['accuracy'])
 
@@ -44,11 +27,31 @@ train, val = keras.utils.image_dataset_from_directory(
     labels='inferred',
     label_mode='binary',
     color_mode='grayscale',
-    batch_size=16,
+    batch_size=32,
     image_size=image_size,
     shuffle=True,
     seed=42,
     validation_split=0.2,
     subset='both'
 )
-model.eval(val)
+
+print("Before tuning")
+model.evaluate(val)
+
+checkpoint_callback = keras.callbacks.ModelCheckpoint(
+    'model_qat_tuned.h5',
+    save_best_only=True,
+    monitor='val_accuracy',
+    mode='max',
+    initial_value_threshold=0#best_accuracy
+)
+
+#hist = model.fit(train, epochs=100, validation_data=val, validation_batch_size=179, callbacks=[checkpoint_callback])
+#print(f"Best Validation Accuracy: {max(hist.history['val_accuracy'])}")
+
+print("After tuning")
+with tfmot.quantization.keras.quantize_scope():
+  loaded_model = keras.models.load_model('model_qat_tuned.h5')
+loaded_model.compile(optimizer=optimizers.Adam(learning_rate=1e-3), loss='binary_crossentropy', metrics=['accuracy'])
+
+loaded_model.evaluate(val)

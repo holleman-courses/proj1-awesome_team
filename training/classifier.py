@@ -4,54 +4,119 @@ import tf_keras as keras
 
 
 def build_res_block(filters, kernel_size=3, strides=(1,1), padding='same', activation='relu', dropout=0):
-    def res_block(x, use_batch_norm=True):
+    def res_block(x):
         shortcut = x
         
         out = layers.SeparableConv2D(filters, kernel_size, strides=strides, padding=padding, use_bias=False)(x)
-        if use_batch_norm:
-            out = layers.BatchNormalization()(out)
+        out = layers.BatchNormalization()(out)
         out = layers.Activation(activation)(out)
         
         out = layers.SeparableConv2D(filters, kernel_size, strides=(1,1), padding=padding, use_bias=False)(out)
-        if use_batch_norm:
-            out = layers.BatchNormalization()(out)
+        out = layers.BatchNormalization()(out)
         out = layers.Activation(activation)(out)
         
         if strides != (1,1) or x.shape[-1] != filters:
             shortcut = layers.SeparableConv2D(filters, kernel_size=1, strides=strides, padding='same', use_bias=False)(x)
-            if use_batch_norm:
-                shortcut = layers.BatchNormalization()(shortcut)
+            shortcut = layers.BatchNormalization()(shortcut)
         
         out = layers.Add()([out, shortcut])
         out = layers.Dropout(dropout)(out)
         return out
     return res_block
 
-class ResNet:
+
+
+# @keras.saving.register_keras_serializable(package="ResNet")
+
+# class ResBlock(layers.Layer):    
+#     @classmethod
+#     def from_config(cls, config):
+#         return cls(**config)
+#     def __init__(
+#         self,
+#         filters: int, 
+#         kernel_size: int = 3,
+#         strides: tuple[int] = (1,1),
+#         padding:str = 'same',
+#         activation: str = 'relu',
+#         dropout: int = 0,
+#         use_projection: bool = None,
+#         base_args = [],
+#         base_kwargs = {},
+#     ):
+#         super().__init__(*base_args, **base_kwargs)
+#         self.filters = filters
+#         self.kernel_size = kernel_size
+#         self.strides = strides
+#         self.padding = padding
+#         self.activation = activation
+#         self.dropout_p = dropout
+        
+        
+#         self.conv1 = layers.SeparableConv2D(filters, kernel_size, strides, padding=padding, use_bias=False)
+#         self.conv2 = layers.SeparableConv2D(filters, kernel_size, strides, padding=padding, use_bias=False)
+#         self.norm1 = layers.BatchNormalization()
+#         self.norm2 = layers.BatchNormalization()
+#         self.activation1 = layers.Activation(activation)
+#         self.activation2 = layers.Activation(activation)
+#         self.dropout = layers.Dropout(dropout)
+        
+#         if use_projection is None:
+#             use_projection = strides != (1,1)
+#         self.use_projection = use_projection
+        
+#         self.match_dim = layers.SeparableConv2D(
+#             filters,
+#             kernel_size=1,
+#             strides=strides,
+#             padding='same',
+#             use_bias=False
+#         ) if self.use_projection else layers.Identity()
     
-    def gen_model(self, use_batch_norm=True):
-        self.input = layers.Input(shape=self.in_size)
-        x = self.initial_conv(self.input)
+#     # def build(self, input_shape: tuple):
+#     #     if self.use_projection:
+#     #         return
+#     #     if input_shape[-1] != self.filters:
+#     #         self.match_dim = layers.Conv2D(
+#     #             self.filters,
+#     #             kernel_size=1,
+#     #             strides=self.strides,
+#     #             padding='same',
+#     #             use_bias=False
+#     #         )
+#     #         self.use_projection = True
+            
         
-        if use_batch_norm:
-            x = layers.BatchNormalization()(x)
-        x = layers.Activation('relu')(x)
-        x = self.initial_pool(x)
+#     def call(self, x: tf.Tensor) -> tf.Tensor:
+#         x_matched = self.match_dim(x)
         
-        for block in self.ResBlocks:
-            x = block(x, use_batch_norm=use_batch_norm)
+#         out = self.conv1(x)
+#         out = self.norm1(out)
+#         out = self.activation1(out)
         
-        x = layers.GlobalAveragePooling2D()(x)
-        for layer in self.fc_layers:
-            x = layer(x)
-            if use_batch_norm:
-                x = layers.BatchNormalization()(x)
-            x = layers.Activation('relu')(x)
-            x = layers.Dropout(self.dropout)(x)
-        self.output = layers.Dense(self.out_shape, activation='sigmoid')(x)
+#         out = self.conv2(out)
+#         out = self.norm2(out)
+#         out = self.activation2(out)
         
-        self.model = models.Model(inputs=self.input, outputs=self.output)
+#         out = layers.Add()([out, x_matched])
+#         out = self.dropout(out)
         
+#         return out
+
+#     def get_config(self):
+#         base_config = super().get_config()
+#         return {
+#             'base_kwargs': base_config,
+#             'filters': self.filters,
+#             'kernel_size': self.kernel_size,
+#             'strides': self.strides,
+#             'padding': self.padding,
+#             'activation': self.activation,
+#             'dropout': self.dropout_p,
+#             'use_projection': self.use_projection
+#         }
+
+class ResNet:
     def __init__(
         self,
         in_size: tuple,
@@ -66,15 +131,7 @@ class ResNet:
         metrics: list[str]
     ):
         self.input = layers.Input(shape=in_size)
-        self.initial_conv = initial_conv
-        self.initial_pool = initial_pool
-        self.ResBlocks = ResBlocks
-        self.fc_layers = fc_layers
-        self.dropout = dropout
-        
-        
-        
-        
+        x = initial_conv(self.input)
         
         x = layers.BatchNormalization()(x)
         x = layers.Activation('relu')(x)
@@ -114,21 +171,23 @@ class ResNet:
                 save_best_only=True,
                 monitor='val_accuracy',
                 mode='max',
-                initial_value_threshold=0#best_accuracy
+                initial_value_threshold=best_accuracy
             )
 
         
         hist = self.model.fit(*args, **kwargs, callbacks=[checkpoint_callback])
         
         best_accuracy_new = max(hist.history['val_accuracy'])
+        print(f"Best Validation Accuracy: {best_accuracy_new}")
         if best_accuracy_new > best_accuracy:
             with open(best_path, 'w') as f:
                 f.write(str(best_accuracy_new))
         return hist
         
-
+    def evaluate(self, *args, **kwargs):
+        return self.model.evaluate(*args, **kwargs)
     def save(self, path):
-        self.sequential.save(path)
+        self.model.save(path)
     def load(self, path):
-        self.sequential = models.load_model(path)
+        self.model = models.load_model(path)
 
