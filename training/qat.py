@@ -10,7 +10,28 @@ image_size = (64, 64)
 
 
 
+
+def remove_batchnorm(model: models.Model):
+    inputs = model.input  # Model input tensor
+    x = inputs
+    
+    layer_outputs = {}  # Track layer outputs for residual connections
+
+    for i, layer in enumerate(model.layers):
+        if isinstance(layer, layers.BatchNormalization):
+            model.layers.remove(layer)
+        
+
+
+
 model = models.load_model('model.h5')
+remove_batchnorm(model)
+
+for layer in model.layers:
+    print(layer.__class__.__name__)
+
+
+
 print('Begin Quantization')
 model = tfmot.quantization.keras.quantize_model(model)
 print("End Quantization")

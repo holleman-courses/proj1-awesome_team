@@ -52,7 +52,7 @@ train, val = keras.utils.image_dataset_from_directory(
 )
 
 
-hist = model.fit('model.h5', x=train, epochs=500, validation_data=val, validation_batch_size=179)
+hist = model.fit('model.h5', x=train, epochs=1, validation_data=val, validation_batch_size=179)
 
 model_loaded = keras.models.load_model('model.h5')
 model_loaded.evaluate(val)
