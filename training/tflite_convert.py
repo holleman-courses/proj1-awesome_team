@@ -3,10 +3,10 @@ import tensorflow as tf
 import tf_keras as keras
 import tensorflow_model_optimization as tfmot
 
-with tfmot.quantization.keras.quantize_scope():
-  model = keras.models.load_model('model_qat_tuned.h5')
 
-image_size = (64, 64)
+model = keras.models.load_model('qat_model.h5')
+print(model.summary())
+image_size = (176, 144)
 
 _, val = keras.utils.image_dataset_from_directory(
     directory = 'dataset',
@@ -17,7 +17,7 @@ _, val = keras.utils.image_dataset_from_directory(
     image_size=image_size,
     shuffle=True,
     seed=42,
-    validation_split=0.2,
+    validation_split=0.3,
     subset='both'
 )
 
@@ -32,11 +32,11 @@ converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
 converter.inference_input_type = tf.int8
 converter.inference_output_type = tf.int8  
 
-# tflite_quant_model = converter.convert()
-# # Save the TFLite model
-# with open("model.tflite", "wb") as f:
-#     f.write(tflite_quant_model)
-# Test in Python
+tflite_quant_model = converter.convert()
+# Save the TFLite model
+with open("model.tflite", "wb") as f:
+    f.write(tflite_quant_model)
+#Test in Python
 
 
 interpreter = tf.lite.Interpreter(model_path="model.tflite")
