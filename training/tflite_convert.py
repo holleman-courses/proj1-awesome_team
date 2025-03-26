@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import tf_keras as keras
 import tensorflow_model_optimization as tfmot
+import os
 
 
 model = keras.models.load_model('qat_model.h5')
@@ -37,35 +38,4 @@ tflite_quant_model = converter.convert()
 with open("model.tflite", "wb") as f:
     f.write(tflite_quant_model)
 #Test in Python
-
-
-interpreter = tf.lite.Interpreter(model_path="model.tflite")
-interpreter.allocate_tensors()
-
-input_details = interpreter.get_input_details()
-output_details = interpreter.get_output_details()
-
-# Get quantization parameters
-input_scale = input_details[0]['quantization'][0]
-input_zero_point = input_details[0]['quantization'][1]
-
-print(f"Input Scale: {input_scale} | Input Zero Point: {input_zero_point}")
-print(f"Output Scale: {output_details[0]['quantization'][0]} | Output Zero Point: {output_details[0]['quantization'][1]}")
-
-size = 0
-for tensor in interpreter.get_tensor_details():
-    match tensor['dtype']:
-        case np.int8:
-            size += np.prod(tensor['shape'])
-        case np.float32:
-            size += np.prod(tensor['shape']) * 4
-        case np.int32:
-            if 'pseudo' in tensor['name']:
-                continue
-            size += np.prod(tensor['shape']) * 4
-        case _:
-            raise ValueError(f"Unsupported data type: {tensor['dtype']}")
-    
-            
-
-print(f"Arena Size: {size} bytes")
+os.system('xxd -i model.tflite > embedded/Proj1/include/model.h')
