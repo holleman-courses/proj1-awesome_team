@@ -16,22 +16,24 @@ image_size = (176, 144)
 # 112290 with original image size, but training is 3x slower
 # 47138 with first 2 resblocks removed, 2x slower than original model
 
-p_drop = 0.3 #prev 0.3
+p_drop = 0.0
+#prev 0.4
 model = ResNet(
     in_size=(*image_size, 1),
     out_shape=1,
-    initial_conv=layers.SeparableConv2D(64, 7, dilation_rate=2, padding='same', use_bias=False),
+    initial_conv=layers.SeparableConv2D(16, 7, strides=4, padding='same', use_bias=False),
     initial_pool=layers.MaxPool2D(),
     ResBlocks=[
-        # build_res_block(128, 5, dropout=p_drop),
-        # build_res_block(64, 5, dropout=p_drop),
-        # build_res_block(64, 5, dropout=p_drop),
-        # build_res_block(64, 5, dropout=p_drop),
-        # build_res_block(32, 3, dropout=p_drop),
-        # build_res_block(32, 3, dropout=p_drop),
-        # build_res_block(32, 3, dropout=p_drop),
-        # build_res_block(32, 3, dropout=p_drop),
-        build_res_block(32, 3, dropout=p_drop),
+        build_res_block(8, 7, dropout=p_drop),
+        build_res_block(64, 5, dropout=p_drop),
+        build_res_block(128, 3, dropout=p_drop),
+        build_res_block(64, 5, dropout=p_drop),
+        build_res_block(64, 5, dropout=p_drop),
+        build_res_block(64, 5, dropout=p_drop),
+        build_res_block(32, 5, dropout=p_drop),
+        build_res_block(16, 5, dropout=p_drop),
+        build_res_block(16, 7, dropout=p_drop),
+        build_res_block(8, 5, dropout=p_drop),
     ],
     fc_layers=[
         layers.Dense(64, use_bias=False),
@@ -40,7 +42,7 @@ model = ResNet(
     ],
     dropout=p_drop,
     optimizer=optimizers.Adam(learning_rate=5e-3, weight_decay=1e-5),
-    loss=keras.losses.BinaryCrossentropy(from_logits=True),
+    loss=keras.losses.BinaryCrossentropy(from_logits=False),
     metrics=['accuracy']
 )
 
@@ -54,7 +56,8 @@ train, val = keras.utils.image_dataset_from_directory(
     shuffle=True,
     seed=42,
     validation_split=0.3,
-    subset='both'
+    subset='both',
+    interpolation='bilinear'
 )
 
 
@@ -69,21 +72,24 @@ def augment(dataset: tf.data.Dataset, batch_size: int):
 
     # Apply augmentation
     augmented_dataset = dataset.map(lambda x, y: (augmentation(x), y), num_parallel_calls=autotune)
+    #aug2 = dataset.map(lambda x, y: (augmentation(x), y), num_parallel_calls=autotune)
 
     # Combine original and augmented datasets
-    dataset = dataset.concatenate(augmented_dataset)
+    dataset = dataset.concatenate(augmented_dataset)#.concatenate(aug2)
 
     # Shuffle, batch, and prefetch
     dataset = dataset.batch(batch_size, num_parallel_calls=autotune).prefetch(autotune)
     return dataset
 
 train = augment(train, 64)
-val = val.batch(100, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+
+val = val.batch(360, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 
 hist = model.fit(
-    save_path='qat_model.h5',
-    reset_best_acc=True, 
+    save_path='model.h5',
+    reset_best_acc=False, 
     x=train,
+    stop_patience=500,
     epochs=500,
     validation_data=val,
 )

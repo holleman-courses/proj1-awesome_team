@@ -54,7 +54,7 @@ class ResNet:
             x = layers.BatchNormalization()(x)
             x = layers.Activation('relu')(x)
             x = layers.Dropout(dropout)(x)
-        self.output = layers.Dense(out_shape)(x)
+        self.output = layers.Dense(out_shape, activation='sigmoid')(x)
         
         self.model = models.Model(inputs=self.input, outputs=self.output)
         self.model.compile(
@@ -69,7 +69,13 @@ class ResNet:
         print('-'*40)
         print(f'Total number of parameters: {num_params}')
         print('-'*40)
-    def fit(self, save_path = None, best_path = 'training/bestacc.txt', reset_best_acc = False, *args, **kwargs):
+    def fit(
+        self,
+        save_path = None,
+        best_path = 'training/bestacc.txt',
+        reset_best_acc = False,
+        stop_patience = 10,
+        *args, **kwargs):
         checkpoint_callback = lambda: None
         if reset_best_acc:
             best_accuracy = 0
@@ -84,9 +90,14 @@ class ResNet:
                 mode='max',
                 initial_value_threshold=best_accuracy
             )
+        early_stop = keras.callbacks.EarlyStopping(
+            monitor='val_accuracy',
+            patience=stop_patience,
+            mode='max'
+        )
 
         
-        hist = self.model.fit(*args, **kwargs, callbacks=[checkpoint_callback])
+        hist = self.model.fit(*args, **kwargs, callbacks=[checkpoint_callback, early_stop])
         
         best_accuracy_new = max(hist.history['val_accuracy'])
         print(f"Best Validation Accuracy: {best_accuracy_new}")
