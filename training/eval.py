@@ -6,7 +6,7 @@ import tf_keras as keras
 import tensorflow_model_optimization as tfmot
 from classifier import ResBlock, ResNet
 
-image_size = (64, 64)
+image_size = (176, 144)
 
 model = models.load_model('model.h5')
 
@@ -20,7 +20,7 @@ _, val = keras.utils.image_dataset_from_directory(
     image_size=image_size,
     shuffle=True,
     seed=42,
-    validation_split=0.2,
+    validation_split=0.3,
     subset='both'
 )
 
