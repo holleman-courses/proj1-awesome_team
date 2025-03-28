@@ -25,3 +25,7 @@
     - 5s per epoch vs 1s per epoch
     - Because it has to simulate the quantization process
 - The quantization aware training is also more memory intensive
+
+
+true_positives: 123.0000 - true_negatives: 113.0000 - false_positives: 9.0000 - false_negatives: 24.0000
+

@@ -1,14 +1,18 @@
-import numpy as np
-import tempfile
-import tensorflow as tf
-from tf_keras import models, optimizers
+from tf_keras import models
 import tf_keras as keras
-import tensorflow_model_optimization as tfmot
-from classifier import ResBlock, ResNet
 
 image_size = (176, 144)
 
-model = models.load_model('model.h5')
+model: models.Model = models.load_model('model.h5')
+model.compile(metrics = [
+    keras.metrics.BinaryAccuracy(),
+    keras.metrics.Precision(),
+    keras.metrics.Recall(),
+    keras.metrics.TruePositives(),
+    keras.metrics.TrueNegatives(),
+    keras.metrics.FalsePositives(),
+    keras.metrics.FalseNegatives(),
+])
 
 
 _, val = keras.utils.image_dataset_from_directory(
