@@ -16,8 +16,8 @@ image_size = (176, 144)
 # 112290 with original image size, but training is 3x slower
 # 47138 with first 2 resblocks removed, 2x slower than original model
 
-p_drop = 0.0
-#prev 0.4
+p_drop = 0.4
+
 model = ResNet(
     in_size=(*image_size, 1),
     out_shape=1,
@@ -36,7 +36,7 @@ model = ResNet(
         build_res_block(8, 5, dropout=p_drop),
     ],
     fc_layers=[
-        layers.Dense(64, use_bias=False),
+        #layers.Dense(64, use_bias=False),
         layers.Dense(32, use_bias=False),
         layers.Dense(16, use_bias=False),
     ],
@@ -86,8 +86,8 @@ train = augment(train, 64)
 val = val.batch(360, num_parallel_calls=tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 
 hist = model.fit(
-    save_path='model.h5',
-    reset_best_acc=False, 
+    save_path='model_new.h5',
+    reset_best_acc=True, 
     x=train,
     stop_patience=500,
     epochs=500,

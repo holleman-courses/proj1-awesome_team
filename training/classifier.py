@@ -7,20 +7,20 @@ def build_res_block(filters, kernel_size=3, strides=(1,1), padding='same', activ
     def res_block(x):
         shortcut = x
         
+        out = layers.BatchNormalization()(x)
+        out = layers.Activation(activation)(out)
         out = layers.SeparableConv2D(filters, kernel_size, strides=strides, padding=padding, use_bias=False)(x)
-        out = layers.BatchNormalization()(out)
-        out = layers.Activation(activation)(out)
         
-        out = layers.SeparableConv2D(filters, kernel_size, strides=(1,1), padding=padding, use_bias=False)(out)
         out = layers.BatchNormalization()(out)
+        out = layers.Dropout(dropout)(out) # Dropout at P5
         out = layers.Activation(activation)(out)
+        out = layers.SeparableConv2D(filters, kernel_size, strides=(1,1), padding=padding, use_bias=False)(out)
         
         if strides != (1,1) or x.shape[-1] != filters:
             shortcut = layers.Conv2D(filters, kernel_size=1, strides=strides, padding='same', use_bias=False)(x)
-            shortcut = layers.BatchNormalization()(shortcut)
         
         out = layers.Add()([out, shortcut])
-        out = layers.Dropout(dropout)(out)
+        
         return out
     return res_block
 
@@ -48,12 +48,17 @@ class ResNet:
         for block in ResBlocks:
             x = block(x)
         
+        
+        x = layers.BatchNormalization()(x)
+        x = layers.Activation('relu')(x)
+        x = layers.Dropout(dropout)(x) # Dropout at H4
         x = layers.GlobalAveragePooling2D()(x)
+        
         for layer in fc_layers:
-            x = layer(x)
-            x = layers.BatchNormalization()(x)
-            x = layers.Activation('relu')(x)
-            x = layers.Dropout(dropout)(x)
+           x = layer(x)
+           x = layers.BatchNormalization()(x)
+           x = layers.Activation('relu')(x)
+            
         self.output = layers.Dense(out_shape, activation='sigmoid')(x)
         
         self.model = models.Model(inputs=self.input, outputs=self.output)
